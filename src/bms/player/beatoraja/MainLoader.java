@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 
 import javax.swing.JOptionPane;
 
+import bms.player.beatoraja.song.*;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Graphics;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -24,10 +25,6 @@ import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
 import bms.player.beatoraja.AudioConfig.DriverType;
 import bms.player.beatoraja.ir.IRConnectionManager;
 import bms.player.beatoraja.launcher.PlayConfigurationView;
-import bms.player.beatoraja.song.SQLiteSongDatabaseAccessor;
-import bms.player.beatoraja.song.SongData;
-import bms.player.beatoraja.song.SongDatabaseAccessor;
-import bms.player.beatoraja.song.SongUtils;
 
 /**
  * 起動用クラス
@@ -226,7 +223,7 @@ public class MainLoader extends Application {
 			try {
 				Config config = Config.read();
 				Class.forName("org.sqlite.JDBC");
-				songdb = new SQLiteSongDatabaseAccessor(config.getSongpath(), config.getBmsroot());
+				songdb = new FilteredSongDBAccessor(config.getSongpath(), config.getBmsroot());
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			}
