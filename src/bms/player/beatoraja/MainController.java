@@ -5,6 +5,8 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
 
+import bms.player.beatoraja.battle.BattleMatching;
+import bms.player.beatoraja.battle.BattleResult;
 import org.lwjgl.input.Mouse;
 
 import com.badlogic.gdx.*;
@@ -65,6 +67,8 @@ public class MainController {
 	private CourseResult gresult;
 	private KeyConfiguration keyconfig;
 	private SkinConfiguration skinconfig;
+	private BattleMatching battleMatch;
+	private BattleResult battleResult;
 
 	private AudioDriver audio;
 
@@ -270,8 +274,14 @@ public class MainController {
 		case SKINCONFIG:
 			newState = skinconfig;
 			break;
-		}
+			case BATTLEMATCHING:
+				newState = battleMatch;
+				break;
+			case BATTLERESULT:
+				newState = battleResult;
+				break;
 
+		}
 		if (newState != null && current != newState) {
 			if(current != null) {
 				current.shutdown();
@@ -339,6 +349,8 @@ public class MainController {
 		gresult = new CourseResult(this);
 		keyconfig = new KeyConfiguration(this);
 		skinconfig = new SkinConfiguration(this, player);
+		battleMatch = new BattleMatching(this);
+		battleResult = new BattleResult(this);
 		if (bmsfile != null) {
 			if(resource.setBMSFile(bmsfile, auto)) {
 				changeState(MainStateType.PLAY);
@@ -348,7 +360,7 @@ public class MainController {
 				exit();
 			}
 		} else {
-			changeState(MainStateType.MUSICSELECT);
+			changeState(MainStateType.BATTLEMATCHING);
 		}
 
 		Logger.getGlobal().info("初期化時間(ms) : " + (System.currentTimeMillis() - t));
