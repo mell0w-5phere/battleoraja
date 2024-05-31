@@ -9,6 +9,7 @@ import bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys;
 import bms.player.beatoraja.ir.IRPlayerData;
 import bms.player.beatoraja.skin.Skin;
 import bms.player.beatoraja.skin.SkinHeader;
+import bms.player.beatoraja.song.FilteredSongDBAccessor;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -160,8 +161,18 @@ public class BattleMatching extends MainState {
                 sprite.begin();
                 drawFont(sprite, "Opponent: "+opponent.name, 10, lineTopY - 45 * ++lineCnt);
                 sprite.end();
+
+                String[] avail = battleIrConn.getAvailableSongs();
+                if (avail != null) {
+                    ((FilteredSongDBAccessor)main.getSongDatabase()).setFilter(avail);
+                    matchState = MatchState.READY;
+                }
                 break;
             case READY:
+                sprite.begin();
+                drawFont(sprite, "Opponent: "+opponent.name, 10, lineTopY - 45 * ++lineCnt);
+                drawFont(sprite, "Matching complete. press enter...", 10, lineTopY - 45 * ++lineCnt);
+                sprite.end();
 
                 if (input.isControlKeyPressed(ControlKeys.ENTER)) {
                     main.changeState(MainStateType.MUSICSELECT);

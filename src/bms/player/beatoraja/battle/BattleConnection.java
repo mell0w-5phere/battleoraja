@@ -15,6 +15,7 @@ public interface BattleConnection {
     IRPlayerData getOpponent();
     String getRoomKey();
     void sendSongList(SongData[] songs);
+    String[] getAvailableSongs();
 
     enum BattleConnectionState{
         NO_CONNECTION, CONNECTING, FAILED, SUCCEEDED;

@@ -335,6 +335,10 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
         listPoller.start();
     }
 
+    public String[] getAvailableSongs() {
+        return room.availSongs;
+    }
+
 
     // async threads
     private void pollSockets(int reqIdx, int subIdx) {
