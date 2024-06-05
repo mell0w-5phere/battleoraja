@@ -38,8 +38,7 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
     private List<Message> sendBuf;
     // battle matching
     private BattleRoom room;
-    private Thread oppPoller;
-    private Thread listPoller;
+    private Thread serverPollThread;
 
     public void log(String msg, Level level) {
         Logger.getGlobal().log(level, String.format("[Mell0wIR] %s", msg));
@@ -289,22 +288,16 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
         return room.opponent;
     }
 
-    private void startPollOpponent() {
-        if (oppPoller != null && oppPoller.isAlive()) {
-            return;
-        }
-        oppPoller = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                putSendBuffer("POLL_OPPONENT", null);
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    log("interrupted opponent poll thread", Level.INFO);
-                    break;
-                }
+    private void pollOpponent() {
+        while (!Thread.currentThread().isInterrupted()) {
+            putSendBuffer("POLL_OPPONENT", null);
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                log("interrupted opponent poll thread", Level.INFO);
+                break;
             }
-        });
-        oppPoller.start();
+        }
     }
 
     public void sendSongList(SongData[] songs) {
@@ -314,14 +307,7 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
         }
         String body = String.join(",", hashes);
         putSendBuffer("SEND_LIST", body);
-        startPollMusicList();
-    }
-
-    private void startPollMusicList() {
-        if (listPoller != null && listPoller.isAlive()) {
-            return;
-        }
-        listPoller = new Thread(() -> {
+        startPolling(()-> {
             while (!Thread.currentThread().isInterrupted()) {
                 putSendBuffer("POLL_LIST", null);
                 try {
@@ -331,8 +317,7 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
                     break;
                 }
             }
-        });
-        listPoller.start();
+        }, "POLL_LIST");
     }
 
     public String[] getAvailableSongs() {
@@ -370,15 +355,12 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
                             log("opponent not found", Level.INFO);
                             break;
                         case "OPPONENT_FOUND":
-                            oppPoller.interrupt();
+                            serverPollThread.interrupt();
                             String[] parts = repMsg.content.split(":", 2);
-                            room.opponent = new IRPlayerData(parts[0], parts[1], "");
-                            break;
-                        case "LIST_NOT_READY":
-                            log("list not ready", Level.INFO);
+                            room.setOpponent(new IRPlayerData(parts[0], parts[1], ""));
                             break;
                         case "LIST_READY":
-                            listPoller.interrupt();
+                            serverPollThread.interrupt();
                             log("list acquired", Level.INFO);
                             room.availSongs = repMsg.content.split(",");
                             break;
@@ -405,6 +387,15 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
             }
         }
         log("zmq polling thread quit", Level.INFO);
+    }
+
+    private void startPolling(Runnable target, String name) {
+        if (serverPollThread != null && serverPollThread.isAlive()) {
+            log(String.format("poll thread %s is alive.", serverPollThread.getName()), Level.WARNING);
+            return;
+        }
+        serverPollThread = new Thread(target, name);
+        serverPollThread.start();
     }
 }
 
