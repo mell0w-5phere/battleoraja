@@ -205,7 +205,8 @@ public class BarManager {
 
 		this.tables = table.toArray(TableBar.class);
 
-
+		// disable course mode
+		/*
 		TableDataAccessor.TableAccessor courseReader = new TableDataAccessor.TableAccessor("course") {
 			@Override
 			public TableData read() {
@@ -220,6 +221,7 @@ public class BarManager {
 			}
 		};
 		courses = new TableBar(select, courseReader.read(), courseReader);
+		 */
 
 		CourseData[] cds = new CourseDataAccessor("favorite").readAll();
 //		if(cds.length == 0) {
@@ -293,7 +295,7 @@ public class BarManager {
 			dir.clear();
 			sourcebars.clear();
 			l.addAll(new FolderBar(select, null, "e2977170").getChildren());
-			l.add(courses);
+			// l.add(courses);
 			l.addAll(favorites);
 			appendFolders.keySet().forEach((key) -> {
 			    l.add(appendFolders.get(key));

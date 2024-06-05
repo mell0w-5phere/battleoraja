@@ -8,6 +8,8 @@ import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import bms.player.beatoraja.battle.BattleConnection;
+import bms.player.beatoraja.battle.BattleRoom;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.*;
@@ -24,6 +26,7 @@ import bms.player.beatoraja.select.bar.*;
 import bms.player.beatoraja.skin.SkinType;
 import bms.player.beatoraja.song.SongData;
 import bms.player.beatoraja.song.SongDatabaseAccessor;
+import bms.player.beatoraja.MainController.IRStatus;
 
 /**
  * 選曲部分。 楽曲一覧とカーソルが指す楽曲のステータスを表示し、選択した楽曲を 曲決定部分に渡す。
@@ -103,6 +106,11 @@ public class MusicSelector extends MainState {
 	private PixmapResourcePool banners;
 
 	private PixmapResourcePool stagefiles;
+
+	private boolean isSongSelected;
+	private IRStatus battleIrStatus;
+	private BattleConnection battleIrConn;
+	private BattleRoom battleRoom;
 
 	public MusicSelector(MainController main, boolean songUpdated) {
 		super(main);
@@ -195,6 +203,17 @@ public class MusicSelector extends MainState {
 			search = new SearchTextField(this, resource.getConfig().getResolution());
 			setStage(search);
 		}
+		isSongSelected = false;
+
+		IRStatus[] irs = main.getIRStatus();
+		for (IRStatus ir : irs) {
+			if (ir.connection instanceof BattleConnection) {
+				battleIrStatus = ir;
+				battleIrConn = (BattleConnection) ir.connection;
+				battleRoom = battleIrConn.getBattleRoom();
+				break;
+			}
+		}
 	}
 
 	public void prepare() {
@@ -261,7 +280,22 @@ public class MusicSelector extends MainState {
 		timer.switchTimer(TIMER_IR_CONNECT_BEGIN, irstate == RankingData.ACCESS);
 		timer.switchTimer(TIMER_IR_CONNECT_SUCCESS, irstate == RankingData.FINISH);
 		timer.switchTimer(TIMER_IR_CONNECT_FAIL, irstate == RankingData.FAIL);
-
+		// play == Mode.PLAY and songbar only
+		// no need to set table info to resource
+		if (play != null && play.mode == BMSPlayerMode.Mode.PLAY && current instanceof SongBar && !isSongSelected) {
+			SongBar sb = (SongBar) current;
+			if (sb.existsSong()) {
+				battleIrConn.sendChoice(sb.getSongData());
+				isSongSelected = true;
+			}
+			play = null;
+		}
+		// check if both choices are done
+		if (isSongSelected && battleRoom.isChoiceReady()) {
+			Logger.getGlobal().info("WAAA");
+			main.changeState(MainStateType.BATTLEDECIDE);
+		}
+		/*
 		if (play != null) {
 			if (current instanceof SongBar) {
 				SongData song = ((SongBar) current).getSongData();
@@ -363,6 +397,7 @@ public class MusicSelector extends MainState {
 			}
 			play = null;
 		}
+		 */
 	}
 
 	public void input() {
