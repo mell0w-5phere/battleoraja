@@ -29,9 +29,9 @@ public class BattleMatching extends MainState {
     private IRStatus battleIrStatus;
     private BattleConnection battleIrConn;
     private int curIndex;
-    private IRPlayerData opponent;
     private String roomKey;
     private RoomInputField roomInput;
+    private BattleRoom battleRoom;
     public BattleMatching(MainController main) {
         super(main);
     }
@@ -128,10 +128,12 @@ public class BattleMatching extends MainState {
 
                 if (input.isControlKeyPressed(ControlKeys.ENTER)) {
                     if (curIndex == 0) {
-                        if (battleIrConn.createRoom()) {
+                        BattleRoom room = battleIrConn.createRoom();
+                        if (room != null) {
+                            battleRoom = room;
                             setStage(null);
                             matchState = MatchState.WAITING;
-                            roomKey = battleIrConn.getRoomKey();
+                            roomKey = battleRoom.getRoomKey();
                         } else {
                             main.getMessageRenderer().addMessage("nope", Color.RED, 0);
                         }
@@ -143,40 +145,41 @@ public class BattleMatching extends MainState {
                 }
                 break;
             case WAITING:
-                IRPlayerData opp = battleIrConn.getOpponent();
                 sprite.begin();
                 drawFont(sprite, "This room's keyphrase: " + roomKey, 10, lineTopY - 45 * ++lineCnt);
                 drawFont(sprite, "Waiting for the opponent...", 10, lineTopY - 45 * ++lineCnt);
                 sprite.end();
 
-                if (opp != null) {
+                if (battleRoom.getOpponent() != null) {
                     // opponent found
                     main.getMessageRenderer().addMessage("Opponent found", 1000, Color.GREEN, 0);
-                    opponent = opp;
                     battleIrConn.sendSongList(main.getSongDatabase().getSongDatas("mode", "7"));
                     matchState = MatchState.MATCHED;
                 }
                 break;
             case MATCHED:
                 sprite.begin();
-                drawFont(sprite, "Opponent: "+opponent.name, 10, lineTopY - 45 * ++lineCnt);
+                drawFont(sprite, "Opponent: "+battleRoom.getOpponent().name, 10, lineTopY - 45 * ++lineCnt);
                 sprite.end();
 
-                String[] avail = battleIrConn.getAvailableSongs();
+                String[] avail = battleRoom.getAvailableSongs();
                 if (avail != null) {
                     ((FilteredSongDBAccessor)main.getSongDatabase()).setFilter(avail);
                     matchState = MatchState.READY;
                 }
                 break;
             case READY:
-                sprite.begin();
-                drawFont(sprite, "Opponent: "+opponent.name, 10, lineTopY - 45 * ++lineCnt);
-                drawFont(sprite, "Matching complete. press enter...", 10, lineTopY - 45 * ++lineCnt);
-                sprite.end();
-
                 if (input.isControlKeyPressed(ControlKeys.ENTER)) {
                     main.changeState(MainStateType.MUSICSELECT);
                 }
+                // debug
+                if (battleRoom == null) {
+                    break;
+                }
+                sprite.begin();
+                drawFont(sprite, "Opponent: "+battleRoom.getOpponent().name, 10, lineTopY - 45 * ++lineCnt);
+                drawFont(sprite, "Matching complete. press enter...", 10, lineTopY - 45 * ++lineCnt);
+                sprite.end();
                 break;
         }
     }
@@ -187,7 +190,9 @@ public class BattleMatching extends MainState {
 
     public void joinRoom(String roomKey) {
         curIndex = 1;
-        if(battleIrConn.joinRoom(roomKey)) {
+        BattleRoom room = battleIrConn.joinRoom(roomKey);
+        if(room != null) {
+            battleRoom = room;
             setStage(null);
             matchState = MatchState.WAITING;
         } else {
