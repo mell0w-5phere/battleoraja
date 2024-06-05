@@ -8,10 +8,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -162,7 +159,7 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
             log("not connected to room yet", Level.WARNING);
             return false;
         }
-        reqSock.sendMore(room.roomId.getBytes(StandardCharsets.UTF_8));
+        reqSock.sendMore(room.getRoomId().getBytes(StandardCharsets.UTF_8));
         reqSock.sendMore(msg.cmd.getBytes(StandardCharsets.UTF_8));
         if (msg.content == null) {
             return reqSock.send(new byte[0]);
@@ -239,53 +236,48 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
             sendBuf.add(new Message(cmd, content));
         }
     }
-    public boolean createRoom() {
+    public BattleRoom createRoom() {
         String signature = String.format("Bearer %s", session);
         try {
             String res = request("/room/create", signature, null);
             if (res.startsWith("OK:")) {
                 String[] roomInfo = res.split(":")[1].split(",");
                 room = new BattleRoom(roomInfo[0], roomInfo[1]);
-                log("room name acquired:" + room.roomId, Level.INFO);
-                initSocket(room.roomId);
-                startPollOpponent();
-                return true;
+                log("room name acquired:" + room.getRoomId(), Level.INFO);
+                initSocket(room.getRoomId());
+                startPolling(this::pollOpponent, "POLL_OPPONENT");
+                return room;
             } else {
                 throw new IOException("WOOOOOOOOOOO:" + res);
             }
         } catch (IOException e) {
             e.printStackTrace();
             log("failed room create request", Level.WARNING);
-            return false;
+            return null;
         }
     }
 
-    public boolean joinRoom(String roomKeyword) {
+    public BattleRoom joinRoom(String roomKeyword) {
         String signature = String.format("Bearer %s", session);
         try {
             String res = request("/room/join", signature, "keyword=" + roomKeyword);
             if (res.startsWith("OK:")) {
                 room = new BattleRoom(res.split(":")[1], roomKeyword);
-                log("room joined:" + room.roomId, Level.INFO);
-                initSocket(room.roomId);
-                startPollOpponent();
-                return true;
+                log("room joined:" + room.getRoomId(), Level.INFO);
+                initSocket(room.getRoomId());
+                startPolling(this::pollOpponent, "POLL_OPPONENT");
+                return room;
             } else {
                 throw new IOException("WOOOOOOOOOOO:" + res);
             }
         } catch (IOException e) {
             e.printStackTrace();
             log("failed room join request", Level.WARNING);
-            return false;
+            return null;
         }
     }
-
-    public String getRoomKey() {
-        return room.roomKey;
-    }
-
-    public IRPlayerData getOpponent() {
-        return room.opponent;
+    public BattleRoom getBattleRoom() {
+        return room;
     }
 
     private void pollOpponent() {
@@ -320,10 +312,20 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
         }, "POLL_LIST");
     }
 
-    public String[] getAvailableSongs() {
-        return room.availSongs;
+    public void sendChoice(SongData song) {
+        putSendBuffer("SEND_CHOICE", song.getSha256());
+        startPolling(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                putSendBuffer("POLL_CHOICE", null);
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    log("interrupted song choice poll thread", Level.INFO);
+                    break;
+                }
+            }
+        }, "POLL_CHOICE");
     }
-
 
     // async threads
     private void pollSockets(int reqIdx, int subIdx) {
@@ -349,10 +351,13 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
                             return;
                         case "THUMP_ACK":
                         case "LIST_ACK":
+                        case "CHOICE_ACK":
                             log("got ack", Level.INFO);
                             break;
                         case "OPPONENT_NOT_FOUND":
-                            log("opponent not found", Level.INFO);
+                        case "LIST_NOT_READY":
+                        case "CHOICE_NOT_READY":
+                            log("server not ready", Level.INFO);
                             break;
                         case "OPPONENT_FOUND":
                             serverPollThread.interrupt();
@@ -362,7 +367,19 @@ public class MellowIRConnection implements IRConnection, BattleConnection {
                         case "LIST_READY":
                             serverPollThread.interrupt();
                             log("list acquired", Level.INFO);
-                            room.availSongs = repMsg.content.split(",");
+                            room.setAvailSongs(repMsg.content.split(","));
+                            break;
+                        case "CHOICE_READY":
+                            serverPollThread.interrupt();
+                            LinkedHashMap<String, String> map = new LinkedHashMap<>();
+                            log("choice:" + repMsg.content, Level.INFO);
+                            String[] values = repMsg.content.split(",");
+                            for(String v: values) {
+                                String[] s = v.split(":");
+                                map.put(s[0], s[1]);
+                            }
+                            room.setChoices(map);
+                            log("choice acquired", Level.INFO);
                             break;
                     }
                 }

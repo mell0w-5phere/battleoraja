@@ -6,16 +6,14 @@ import bms.player.beatoraja.ir.IRPlayerData;
 import bms.player.beatoraja.song.SongData;
 
 public interface BattleConnection {
-    boolean createRoom();
-    boolean joinRoom(String roomKeyword);
+    BattleRoom createRoom();
+    BattleRoom joinRoom(String roomKeyword);
+    BattleRoom getBattleRoom();
 
     String getRecvBuffer();
     void putSendBuffer(String cmd, String content);
-
-    IRPlayerData getOpponent();
-    String getRoomKey();
     void sendSongList(SongData[] songs);
-    String[] getAvailableSongs();
+    void sendChoice(SongData choice);
 
     enum BattleConnectionState{
         NO_CONNECTION, CONNECTING, FAILED, SUCCEEDED;
